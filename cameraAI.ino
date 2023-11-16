@@ -8,10 +8,29 @@
 #include "soc/rtc_cntl_reg.h"    // disable brownout problems
 #include "esp_http_server.h"
 #include <HTTPClient.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
+// Setting Wifi Connection
 const char* ssid = "POCO";
 const char* password = "123456789";
 
+// Setup ntp Server
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", 25200); // Offset untuk WIB (7 * 3600 detik)
+
+// Setup motor
+bool motorRunning = false;
+unsigned long motorStartTime = 0;
+const unsigned long motorDuration = 240000; // Durasi motor berjalan dalam milidetik (4 menit)
+const unsigned long photoInterval = 3000; // Interval waktu untuk mengambil foto (3 detik)
+unsigned long previousPhotoTime = 0;
+unsigned long previousCallTime = 0;
+// Alarm
+unsigned long hourAlarm = 10;
+unsigned long minuteAlarm = 0;
+
+// Setup camera
 #define PART_BOUNDARY "123456789000000000000987654321"
 
 #define CAMERA_MODEL_AI_THINKER
@@ -193,6 +212,8 @@ void startCameraServer(){
 }
 
 void setup() {
+  timeClient.begin();
+
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector
   
   pinMode(MOTOR_1_PIN_1, OUTPUT);
@@ -292,7 +313,45 @@ void loop() {
     // sendPhoto();
     previousMillis = currentMillis;
   }
+
+  timeClient.update();
+  callAlarm();
 }
+
+
+void callAlarm() {
+  time_t now = timeClient.getEpochTime();
+  struct tm *timeinfo;
+  timeinfo = localtime(&now);
+  if (timeinfo->tm_hour == hourAlarm && timeinfo->tm_min == minuteAlarm && timeinfo->tm_sec == 0 && millis() - previousCallTime >= 1000) {
+    // Call function only once when the time is exactly 10:00:00
+    previousCallTime = millis();
+    runMotorAndTakePhoto();
+  }
+}
+
+void runMotorAndTakePhoto() {
+  unsigned long currentTime = millis();
+
+  if (!motorRunning) {
+    Serial.println("Motor started");
+    controlAction("forward");
+    motorStartTime = currentTime;
+    motorRunning = true;
+    previousPhotoTime = currentTime;
+  } else {
+    if (currentTime - motorStartTime >= motorDuration) {
+      Serial.println("Motor stopped");
+      controlAction("stop");
+      motorRunning = false;
+    } else if (currentTime - previousPhotoTime >= photoInterval) {
+      // Mengambil foto setiap 3 detik
+      previousPhotoTime = currentTime;
+      controlAction("detect");
+    }
+  }
+}
+
 
 String sendPhoto() {
   String getAll;
