@@ -9,8 +9,8 @@
 #include "esp_http_server.h"
 #include <HTTPClient.h>
 
-const char* ssid = "Kost.323";
-const char* password = "Kerjowoii";
+const char* ssid = "POCO";
+const char* password = "123456789";
 
 #define PART_BOUNDARY "123456789000000000000987654321"
 
@@ -38,6 +38,7 @@ const char* password = "Kerjowoii";
 
 #define MOTOR_1_PIN_1    12
 #define MOTOR_1_PIN_2    13
+#define PIN_EN_A         15
 
 static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
 static const char* _STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
@@ -46,7 +47,7 @@ static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %
 httpd_handle_t camera_httpd = NULL;
 httpd_handle_t stream_httpd = NULL;
 
-String serverName = "192.168.18.139";   //REPLACE WITH YOUR DOMAIN NAME
+String serverName = "192.168.6.152";   //REPLACE WITH YOUR DOMAIN NAME
 String serverPath = "/api/v1/plants/detect";     // The default serverPath should be upload.php
 const int serverPort = 8000; //server port for HTTPS
 
@@ -197,6 +198,7 @@ void setup() {
   pinMode(MOTOR_1_PIN_1, OUTPUT);
   pinMode(MOTOR_1_PIN_2, OUTPUT);
   pinMode(LED_GPIO_NUM, OUTPUT);
+  pinMode(PIN_EN_A, OUTPUT);
   
   Serial.begin(115200);
   Serial.setDebugOutput(false);
@@ -283,6 +285,8 @@ String controlAction(const char* variable) {
 }
 
 void loop() {
+
+  analogWrite(PIN_EN_A, 200);
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= timerInterval) {
     // sendPhoto();
