@@ -12,8 +12,8 @@
 #include <WiFiUdp.h>
 
 // Setting Wifi Connection
-const char* ssid = "POCO";
-const char* password = "123456789";
+const char* ssid = "Kost.323";
+const char* password = "Kerjowoii";
 
 // Setup ntp Server
 WiFiUDP ntpUDP;
@@ -21,14 +21,12 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", 25200); // Offset untuk WIB (7 * 36
 
 // Setup motor
 bool motorRunning = false;
-unsigned long motorStartTime = 0;
-const unsigned long motorDuration = 240000; // Durasi motor berjalan dalam milidetik (4 menit)
-const unsigned long photoInterval = 3000; // Interval waktu untuk mengambil foto (3 detik)
-unsigned long previousPhotoTime = 0;
-unsigned long previousCallTime = 0;
+const unsigned long motorRunningDuration = 4000; // Durasi motor berjalan dalam milidetik (8 detik)
+const unsigned long photoInterval = 3000; // Interval waktu untuk mengambil foto (4 detik)
+
 // Alarm
-unsigned long hourAlarm = 10;
-unsigned long minuteAlarm = 0;
+unsigned long hourAlarm = 19;
+unsigned long minuteAlarm = 29;
 
 // Setup camera
 #define PART_BOUNDARY "123456789000000000000987654321"
@@ -212,7 +210,6 @@ void startCameraServer(){
 }
 
 void setup() {
-  timeClient.begin();
 
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector
   
@@ -268,6 +265,9 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
+
+  timeClient.begin();
+
   Serial.println("");
   Serial.println("WiFi connected");
   
@@ -307,7 +307,7 @@ String controlAction(const char* variable) {
 
 void loop() {
 
-  analogWrite(PIN_EN_A, 200);
+  analogWrite(PIN_EN_A, 215);
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= timerInterval) {
     // sendPhoto();
@@ -323,10 +323,31 @@ void callAlarm() {
   time_t now = timeClient.getEpochTime();
   struct tm *timeinfo;
   timeinfo = localtime(&now);
-  if (timeinfo->tm_hour == hourAlarm && timeinfo->tm_min == minuteAlarm && timeinfo->tm_sec == 0 && millis() - previousCallTime >= 1000) {
-    // Call function only once when the time is exactly 10:00:00
-    previousCallTime = millis();
-    runMotorAndTakePhoto();
+  int currentHour = timeClient.getHours(); // Mendapatkan jam saat ini dalam format 24 jam (0-23)
+  int currentMinute = timeClient.getMinutes(); // Mendapatkan jam saat ini dalam format 24 jam (0-23)
+  Serial.print("Current hour: ");
+  Serial.println(currentHour);
+  Serial.print("Current minute: ");
+  Serial.println(currentMinute);
+
+  if (currentHour == hourAlarm && currentMinute == minuteAlarm && timeinfo->tm_sec == 0 && millis() - previousCallTime >= 1000) {
+    // Jalankan "forward" selama 5 detik
+    controlAction("forward");
+    delay(motorRunningDuration); // Tunggu 5 detik
+
+    // Berhenti selama 3 detik sambil menjalankan "detect"
+    controlAction("stop");
+    controlAction("detect");
+    delay(photoInterval); // Tunggu 3 detik
+
+    // Jalankan "forward" selama 5 detik
+    controlAction("forward");
+    delay(motorRunningDuration); // Tunggu 5 detik
+
+    // Berhenti selama 3 detik sambil menjalankan "detect"
+    controlAction("stop");
+    controlAction("detect");
+    delay(photoInterval); // Tunggu 3 detik
   }
 }
 
