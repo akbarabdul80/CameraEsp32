@@ -21,12 +21,15 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", 25200); // Offset untuk WIB (7 * 36
 
 // Setup motor
 bool motorRunning = false;
-const unsigned long motorRunningDuration = 4000; // Durasi motor berjalan dalam milidetik (8 detik)
-const unsigned long photoInterval = 3000; // Interval waktu untuk mengambil foto (4 detik)
+const unsigned long motorRunningDuration = 2600; // Durasi motor berjalan dalam milidetik (8 detik)
+const unsigned long photoInterval = 1000; // Interval waktu untuk mengambil foto (4 detik)
 
 // Alarm
 unsigned long hourAlarm = 19;
 unsigned long minuteAlarm = 29;
+
+// Motor Speed
+int NormalSpd = 160; //Top speed (0-255)
 
 // Setup camera
 #define PART_BOUNDARY "123456789000000000000987654321"
@@ -282,16 +285,16 @@ String controlAction(const char* variable) {
   String res = "";
   if (!strcmp(variable, "forward")) {
     Serial.println("Forward");
-    digitalWrite(MOTOR_1_PIN_1, HIGH);
-    digitalWrite(MOTOR_1_PIN_2, LOW);
+    analogWrite(MOTOR_1_PIN_1, NormalSpd);
+    analogWrite(MOTOR_1_PIN_2, 0);
   } else if (!strcmp(variable, "backward")) {
     Serial.println("Backward");
-    digitalWrite(MOTOR_1_PIN_1, LOW);
-    digitalWrite(MOTOR_1_PIN_2, HIGH);
+    analogWrite(MOTOR_1_PIN_1, 0);
+    analogWrite(MOTOR_1_PIN_2, NormalSpd);
   } else if (!strcmp(variable, "stop")) {
     Serial.println("Stop");
-    digitalWrite(MOTOR_1_PIN_1, LOW);
-    digitalWrite(MOTOR_1_PIN_2, LOW);
+    analogWrite(MOTOR_1_PIN_1, 0);
+    analogWrite(MOTOR_1_PIN_2, 0);
   } else if (!strcmp(variable, "on_lamp")) {
     Serial.println("On Lamp");
     digitalWrite(LED_GPIO_NUM, HIGH); //Turn on
@@ -316,6 +319,8 @@ void loop() {
 
   timeClient.update();
   callAlarm();
+
+  runningMotorInTrack();
 }
 
 
@@ -325,52 +330,48 @@ void callAlarm() {
   timeinfo = localtime(&now);
   int currentHour = timeClient.getHours(); // Mendapatkan jam saat ini dalam format 24 jam (0-23)
   int currentMinute = timeClient.getMinutes(); // Mendapatkan jam saat ini dalam format 24 jam (0-23)
-  Serial.print("Current hour: ");
-  Serial.println(currentHour);
-  Serial.print("Current minute: ");
-  Serial.println(currentMinute);
+  // Serial.print("Current hour: ");
+  // Serial.println(currentHour);
+  // Serial.print("Current minute: ");
+  // Serial.println(currentMinute);
 
-  if (currentHour == hourAlarm && currentMinute == minuteAlarm && timeinfo->tm_sec == 0 && millis() - previousCallTime >= 1000) {
-    // Jalankan "forward" selama 5 detik
-    controlAction("forward");
-    delay(motorRunningDuration); // Tunggu 5 detik
-
-    // Berhenti selama 3 detik sambil menjalankan "detect"
-    controlAction("stop");
-    controlAction("detect");
-    delay(photoInterval); // Tunggu 3 detik
-
-    // Jalankan "forward" selama 5 detik
-    controlAction("forward");
-    delay(motorRunningDuration); // Tunggu 5 detik
-
-    // Berhenti selama 3 detik sambil menjalankan "detect"
-    controlAction("stop");
-    controlAction("detect");
-    delay(photoInterval); // Tunggu 3 detik
+  if (currentHour == hourAlarm && currentMinute == minuteAlarm && timeinfo->tm_sec == 0) {
+    runningMotorInTrack();
+    runningMotorInTrack();
   }
 }
 
-void runMotorAndTakePhoto() {
-  unsigned long currentTime = millis();
-
-  if (!motorRunning) {
-    Serial.println("Motor started");
+void runningMotorInTrack() {
+    // Jalankan "forward" selama 5 detik
     controlAction("forward");
-    motorStartTime = currentTime;
-    motorRunning = true;
-    previousPhotoTime = currentTime;
-  } else {
-    if (currentTime - motorStartTime >= motorDuration) {
-      Serial.println("Motor stopped");
-      controlAction("stop");
-      motorRunning = false;
-    } else if (currentTime - previousPhotoTime >= photoInterval) {
-      // Mengambil foto setiap 3 detik
-      previousPhotoTime = currentTime;
-      controlAction("detect");
-    }
-  }
+    delay(motorRunningDuration); // Tunggu 5 detik
+
+    // Berhenti selama 3 detik sambil menjalankan "detect"
+    controlAction("stop");
+    controlAction("detect");
+    delay(photoInterval); // Tunggu 3 detik
+}
+
+void runMotorAndTakePhoto() {
+  // unsigned long currentTime = millis();
+
+  // if (!motorRunning) {
+  //   Serial.println("Motor started");
+  //   controlAction("forward");
+  //   motorStartTime = currentTime;
+  //   motorRunning = true;
+  //   previousPhotoTime = currentTime;
+  // } else {
+  //   if (currentTime - motorStartTime >= motorDuration) {
+  //     Serial.println("Motor stopped");
+  //     controlAction("stop");
+  //     motorRunning = false;
+  //   } else if (currentTime - previousPhotoTime >= photoInterval) {
+  //     // Mengambil foto setiap 3 detik
+  //     previousPhotoTime = currentTime;
+  //     controlAction("detect");
+  //   }
+  // }
 }
 
 
